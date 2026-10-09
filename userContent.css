@@ -1,0 +1,10 @@
+/* Copy to <profile>/chrome/userContent.css, then restart Zen. */
+:root {
+  --zsc-thumb: #7e62b8;      /* thumb: the draggable bar */
+  --zsc-track: #80808033;    /* track: the rail (grey, ~20% opacity) */
+  --zsc-width: auto;         /* auto | thin | none */
+}
+* {
+  scrollbar-color: var(--zsc-thumb) var(--zsc-track) !important;
+  scrollbar-width: var(--zsc-width) !important;
+}
