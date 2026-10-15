@@ -6,9 +6,26 @@ param(
 )
 $ErrorActionPreference = "Stop"
 
+# Profile in use, per profiles.ini: [Install*] Default=, else the [Profile*] with Default=1.
 if (-not $ProfilePath) {
-  $ProfilePath = (Get-ChildItem "$env:APPDATA\zen\Profiles" -Directory |
-    Where-Object Name -like "*Default (release)*" | Select-Object -First 1).FullName
+  $root = Join-Path $env:APPDATA "zen"
+  $ini = Join-Path $root "profiles.ini"
+  if (Test-Path $ini) {
+    $sec = ""; $inst = $null; $paths = @{}; $def = $null
+    foreach ($line in Get-Content $ini) {
+      if ($line -match '^\[(.+)\]$') { $sec = $Matches[1]; continue }
+      if ($line -notmatch '^([^=]+)=(.*)$') { continue }
+      $k = $Matches[1]; $v = $Matches[2]
+      if ($sec -like "Install*" -and $k -eq "Default" -and -not $inst) { $inst = $v }
+      if ($sec -like "Profile*" -and $k -eq "Path") { $paths[$sec] = $v }
+      if ($sec -like "Profile*" -and $k -eq "Default" -and $v -eq "1") { $def = $sec }
+    }
+    $p = if ($inst) { $inst } elseif ($def) { $paths[$def] }
+    if ($p) {
+      if (-not [IO.Path]::IsPathRooted($p)) { $p = Join-Path $root $p }
+      if (Test-Path $p -PathType Container) { $ProfilePath = $p }
+    }
+  }
 }
 if (-not $ProfilePath) { throw "Profile not found. Use -ProfilePath (about:support > Profile Folder)." }
 Write-Host "Profile: $ProfilePath"

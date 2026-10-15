@@ -5,10 +5,30 @@ set -euo pipefail
 COLOR="${1:-#7e62b8}"; TRACK="${2:-#80808033}"; WIDTH="${3:-auto}"
 
 case "$(uname -s)" in
-  Darwin) ROOT="$HOME/Library/Application Support/zen" ;;
-  *)      ROOT="$HOME/.zen" ;;
+  Darwin) ROOTS=("$HOME/Library/Application Support/zen") ;;
+  *)      ROOTS=("${XDG_CONFIG_HOME:-$HOME/.config}/zen" "$HOME/.zen"
+                 "$HOME/.var/app/app.zen_browser.zen/config/zen" "$HOME/.var/app/app.zen_browser.zen/.zen") ;;
 esac
-PROFILE="${PROFILE:-$(find "$ROOT" -maxdepth 2 -type d -name '*Default*' | head -n1)}"
+
+# Profile in use, per profiles.ini: [Install*] Default=, else the [Profile*] with Default=1.
+find_profile() {
+  local root ini path
+  for root in "${ROOTS[@]}"; do
+    ini="$root/profiles.ini"
+    [ -f "$ini" ] || continue
+    path="$(awk -F= '
+      { sub(/\r$/, "") }
+      /^\[/ { sec=$0; next }
+      sec ~ /^\[Install/ && $1=="Default" && !inst { inst=$2 }
+      sec ~ /^\[Profile/ && $1=="Path"      { p[sec]=$2 }
+      sec ~ /^\[Profile/ && $1=="Default" && $2=="1" { d=sec }
+      END { print (inst ? inst : p[d]) }' "$ini")"
+    [ -n "$path" ] || continue
+    case "$path" in /*) ;; *) path="$root/$path" ;; esac
+    [ -d "$path" ] && { echo "$path"; return; }
+  done
+}
+PROFILE="${PROFILE:-$(find_profile)}"
 [ -n "$PROFILE" ] || { echo "Profile not found. Set PROFILE=... (about:support > Profile Folder)." >&2; exit 1; }
 echo "Profile: $PROFILE"
 
